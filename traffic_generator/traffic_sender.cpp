@@ -88,6 +88,7 @@ void threadTcpConnection(size_t tid, std::string host, std::string dst_ip_addr, 
         buf[i] = 'a';
     }
 
+    const size_t rate_report_period = 5000000;
     size_t cur_report_num = 1;
     size_t cur_bytes_sent = 0;
     size_t total_bytes_sent = 0;
@@ -104,9 +105,11 @@ void threadTcpConnection(size_t tid, std::string host, std::string dst_ip_addr, 
     double next_state_transition_time = flowlet_duration < 1e-8 ? flow_start_time + flow_duration : flow_start_time + flowlet_duration;
     while (cur_time < flow_start_time + flow_duration) {
         if (state == 1) {
-            size_t bytes_sent = send(sockfd, buf, 8192, 0);
-            cur_bytes_sent += bytes_sent;
-            total_bytes_sent += bytes_sent;
+            int bytes_sent = send(sockfd, buf, 300, MSG_DONTWAIT);
+            if (bytes_sent >= 0) {
+                cur_bytes_sent += bytes_sent;
+                total_bytes_sent += bytes_sent;
+            }
             if (IsTimePassed(next_state_transition_time)) {
                 state = 0;
                 next_state_transition_time += flowlet_gap;
@@ -118,8 +121,8 @@ void threadTcpConnection(size_t tid, std::string host, std::string dst_ip_addr, 
             }
         }
         cur_time = GetTimeUs();
-        if (FLAGS_verbose && IsTimePassed(flow_start_time + cur_report_num * 1000000)) {
-            std::cout << "Sent " << cur_bytes_sent * 8 / 1000 << "Kbps" << std::endl;
+        if (FLAGS_verbose && IsTimePassed(flow_start_time + cur_report_num * rate_report_period)) {
+            std::cout << "Sent " << cur_bytes_sent * 8 / 1000 * 1000000 / rate_report_period << "Kbps" << " " << (cur_time - flow_start_time) / 1000000.0 << std::endl;
             cur_report_num++;
             cur_bytes_sent = 0;
         }

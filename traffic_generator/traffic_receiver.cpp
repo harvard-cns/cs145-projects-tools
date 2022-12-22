@@ -19,6 +19,7 @@ using json = nlohmann::json;
 DEFINE_string(host, "", "The host name to run the traffic receiver");
 DEFINE_string(topofile, "topology.json", "The topology database JSON file");
 DEFINE_string(protocol, "udp", "The protocol to use");
+DEFINE_bool(verbose, false, "Print verbose messages");
 
 int GetHostListFromTopoDB(json& topo_db_json, std::vector<std::string>& host_list)
 {
@@ -31,12 +32,43 @@ int GetHostListFromTopoDB(json& topo_db_json, std::vector<std::string>& host_lis
     return 0;
 }
 
+static inline double GetTimeUs() {
+    struct timespec tv;
+    clock_gettime(CLOCK_REALTIME, &tv);
+    return tv.tv_sec * 1000000 + tv.tv_nsec / 1000.0;
+}
+
+int WaitUntil(double time)
+{
+    double cur_time = GetTimeUs();
+    while (cur_time < time) {
+        cur_time = GetTimeUs();
+    }
+    return 0;
+}
+
+int IsTimePassed(double time)
+{
+    double cur_time = GetTimeUs();
+    if (cur_time >= time) {
+        return 1;
+    }
+    return 0;
+}
+
 void threadReceiveTraffic(int connFd)
 {
     printf("Receiving traffic...\n");
-    char buf[1024];
+    const size_t rate_report_period = 5000000;
+    char buf[65536];
+    double start_time = GetTimeUs();
+    size_t total_bytes_received = 0;
+    size_t cur_bytes_received = 0;
+    size_t cur_report_num = 0;
     while (true) {
-        int n = recv(connFd, buf, sizeof(buf), 0);
+        int n = recv(connFd, buf, 300, 0);
+        total_bytes_received += n;
+        cur_bytes_received += n;
         if (n == 0) {
             printf("Connection closed\n");
             break;
@@ -45,7 +77,14 @@ void threadReceiveTraffic(int connFd)
             perror("recv error");
             break;
         }
+        if (FLAGS_verbose && IsTimePassed(start_time + (cur_report_num + 1) * rate_report_period)) {
+            std::cout << "Received " << cur_bytes_received * 8 / 1000 * 1000000 / rate_report_period << "Kbps" << std::endl;
+            cur_bytes_received = 0;
+            cur_report_num ++;
+        }
     }
+    double end_time = GetTimeUs();
+    std::cout << "Total received " << total_bytes_received * 8 / 1000 * 1000000 / (end_time - start_time) << "Kbps" << std::endl;
 }
 
 void LaunchTcpServer(std::string host_ip_address)
@@ -94,6 +133,8 @@ void LaunchTcpServer(std::string host_ip_address)
 
 void LaunchUdpServer(std::string host_ip_address)
 {
+    const size_t rate_report_period = 5000000;
+
     addrinfo hints, *res, *p;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -126,15 +167,24 @@ void LaunchUdpServer(std::string host_ip_address)
     }
 
     freeaddrinfo(res);
+    size_t start_time = GetTimeUs();
+    size_t total_bytes_received = 0;
+    size_t cur_report_num = 0;
     while (true) {
-        char buf[1024];
+        char buf[65536];
         int n = recv(sockfd, buf, sizeof(buf), 0);
+        total_bytes_received += n;
         if (n == 0) {
             break;
         }
         if (n < 0) {
             perror("recv");
             break;
+        }
+        if (FLAGS_verbose && IsTimePassed(start_time + (cur_report_num + 1) * rate_report_period)) {
+            std::cout << "Received " << total_bytes_received * 8 / 1000 * 1000000 / rate_report_period << "Kbps" << std::endl;
+            total_bytes_received = 0;
+            cur_report_num ++;
         }
     }
 }

@@ -34,11 +34,11 @@ CmdMemcachedServer = {
 	'kill': 'sudo killall memcached 2>/dev/null'
 }
 CmdIperfClient = {
-	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_sender --topofile {topo_file} --host {host_name} --protocol tcp --tracefile {traffic_file} --start_time {start_time} --logdir {log_dir} > {log_dir}/{host_name}_iperf_error.log 2>&1',
+	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_sender --topofile {topo_file} --host {host_name} --protocol {proto} --tracefile {traffic_file} --start_time {start_time} --logdir {log_dir} > {log_dir}/{host_name}_iperf_error.log 2>&1',
 	'kill': 'sudo killall "traffic_sender" 2>/dev/null'
 }
 CmdIperfServer = {
-	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_receiver --topofile {topo_file} --host {host_name} --protocol tcp > {log_dir}/{host_name}_iperf_server_error.log 2>&1',
+	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_receiver --topofile {topo_file} --host {host_name} --protocol {proto} > {log_dir}/{host_name}_iperf_server_error.log 2>&1',
 	'kill': 'sudo killall "traffic_receiver" 2>/dev/null'
 }
 
@@ -87,10 +87,11 @@ def read_iperf_throughputs():
 # Experiment class:
 #	Used to start memcached and iperf servers/clients on different hosts
 class Experiment:
-	def __init__(self, traffic_file, hosts, duration, port_num=5001):
+	def __init__(self, traffic_file, hosts, duration, protocol, port_num=5001):
 		self.traffic_file = traffic_file
 		self.hosts = hosts
 		self.duration = duration
+		self.protocol = protocol
 		self.port_num = port_num
 		self.mode = 0
 		self.mc_server_proc = {}
@@ -147,12 +148,12 @@ class Experiment:
 	def stop_mc_client(self, host):
 		self.mc_client_proc[host].wait()
 	def run_iperf_server(self, host):
-		p = MnExec(host, CmdIperfServer["start"].format(log_dir = LOG_DIR, host_name = host, topo_file=args.topo))
+		p = MnExec(host, CmdIperfServer["start"].format(log_dir = LOG_DIR, host_name = host, proto = self.protocol, topo_file=args.topo))
 		self.iperf_server_proc[host] = p
 	def stop_iperf_server(self, host):
 		MnExec(host, CmdIperfServer["kill"])
 	def run_iperf_client(self, host):
-		p = MnExec(host, CmdIperfClient["start"].format(start_time = self.start_time, host_name = host, traffic_file = self.traffic_file, log_dir = LOG_DIR, topo_file=args.topo))
+		p = MnExec(host, CmdIperfClient["start"].format(start_time = self.start_time, host_name = host, traffic_file = self.traffic_file, log_dir = LOG_DIR, proto = self.protocol, topo_file=args.topo))
 		self.iperf_client_proc[host] = p
 	def stop_iperf_client(self, host):
 		self.iperf_client_proc[host].wait()
@@ -177,7 +178,7 @@ class Experiment:
 		if len(bps_scores) > 0:
 			scorea = sum(bps_scores) / len(bps_scores)
 			avg_thru = sum(iperf_bps) / len(iperf_bps)
-			print("Average throughput of Iperf Traffic: {0} bps".format(avg_thru))
+			print("Average throughput of Iperf Traffic: {0} kbps".format(avg_thru))
 			# print("Average log(throughput) of Iperf Traffic: {0}".format(scorea))
 		# print("The final score is: {0}".format(a * scorea - b * scoreb))
 
@@ -212,6 +213,7 @@ parser = argparse.ArgumentParser(description='A traffic generator')
 parser.add_argument('--trace', help='Traffic trace file', required=True)
 parser.add_argument('--logdir', help='The directory storing the logs', default="logs")
 parser.add_argument('--topo', help='The directory storing the topology.json', default="topology.json")
+parser.add_argument('--protocol', help='TCP/UDP for sending iperf traffic', default="tcp", choices=["tcp", "udp"])
 args = parser.parse_args()
 if __name__ == '__main__':
 	topo = load_topo(args.topo)
@@ -231,7 +233,7 @@ if __name__ == '__main__':
 
 	make_log_dir()
 
-	e = Experiment(args.trace, HOSTS, duration)
+	e = Experiment(args.trace, HOSTS, duration, args.protocol)
 	e.start()
 	
 	e.calc_score(a, b)
