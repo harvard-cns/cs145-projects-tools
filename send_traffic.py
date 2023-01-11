@@ -34,7 +34,7 @@ CmdMemcachedServer = {
 	'kill': 'sudo killall memcached 2>/dev/null'
 }
 CmdIperfClient = {
-	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_sender --topofile {topo_file} --host {host_name} --protocol {proto} --tracefile {traffic_file} --start_time {start_time} --logdir {log_dir} > {log_dir}/{host_name}_iperf_error.log 2>&1',
+	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_sender --topofile {topo_file} --host {host_name} --protocol {proto} --tracefile {traffic_file} --start_time {start_time} --logdir {log_dir} --verbose > {log_dir}/{host_name}_iperf_error.log 2>&1',
 	'kill': 'sudo killall "traffic_sender" 2>/dev/null'
 }
 CmdIperfServer = {
@@ -120,7 +120,7 @@ class Experiment:
 		print("Wait 5 sec for iperf and memcached servers to start")
 		time.sleep(5)
 		print("Start iperf and memcached clients")
-		self.start_time = int(now) + 3
+		self.start_time = int(now) + 10
 		for host in self.hosts:
 			if self.mode == 0:
 				self.run_mc_client(host)

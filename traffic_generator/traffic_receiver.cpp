@@ -66,7 +66,7 @@ void threadReceiveTraffic(int connFd)
     size_t cur_bytes_received = 0;
     size_t cur_report_num = 0;
     while (true) {
-        int n = recv(connFd, buf, 300, 0);
+        int n = recv(connFd, buf, 1400, 0);
         total_bytes_received += n;
         cur_bytes_received += n;
         if (n == 0) {

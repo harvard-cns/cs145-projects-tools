@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <chrono>
 
 #include "trace.hpp"
 
@@ -14,6 +15,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ctime>
+#include <unistd.h>
 
 using json = nlohmann::json;
 
@@ -24,6 +26,7 @@ DEFINE_string(protocol, "udp", "The protocol to use");
 DEFINE_uint64(start_time, 0, "The start time of the traffic");
 DEFINE_string(logdir, "logs", "The log file to record the traffic");
 DEFINE_bool(verbose, false, "Print verbose messages");
+DEFINE_uint64(bandwidth, 1000000, "The bandwidth of the sender");
 
 std::vector<std::thread*> all_client_threads;
 std::vector<double> all_client_thread_throughputs;
@@ -48,8 +51,8 @@ static inline double GetTimeUs() {
 int WaitUntil(double time)
 {
     double cur_time = GetTimeUs();
-    while (cur_time < time) {
-        cur_time = GetTimeUs();
+    if (time > cur_time) {
+        std::this_thread::sleep_for(std::chrono::microseconds((int)(time - cur_time)));
     }
     return 0;
 }
@@ -105,10 +108,11 @@ void threadTcpConnection(size_t tid, std::string host, std::string dst_ip_addr, 
     double next_state_transition_time = flowlet_duration < 1e-8 ? flow_start_time + flow_duration : flow_start_time + flowlet_duration;
     while (cur_time < flow_start_time + flow_duration) {
         if (state == 1) {
-            int bytes_sent = send(sockfd, buf, 300, MSG_DONTWAIT);
+            int bytes_sent = send(sockfd, buf, 1400, 0);
             if (bytes_sent >= 0) {
                 cur_bytes_sent += bytes_sent;
                 total_bytes_sent += bytes_sent;
+                std::this_thread::sleep_for(std::chrono::microseconds(1000000UL * bytes_sent * 8 / FLAGS_bandwidth));
             }
             if (IsTimePassed(next_state_transition_time)) {
                 state = 0;
