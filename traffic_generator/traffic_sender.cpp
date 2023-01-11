@@ -177,7 +177,9 @@ void threadUdpConnection(size_t tid, std::string host, std::string dst_ip_addr, 
 
     size_t cur_report_num = 1;
     size_t cur_bytes_sent = 0;
+    size_t cur_bytes_received = 0;
     size_t total_bytes_sent = 0;
+    size_t total_bytes_received = 0;
     if (FLAGS_verbose) {
         std::cout << "Wait for " << (flow_start_time - GetTimeUs()) / 1000000 << " seconds" << std::endl;
     }
@@ -188,12 +190,16 @@ void threadUdpConnection(size_t tid, std::string host, std::string dst_ip_addr, 
     double cur_time = GetTimeUs();
     std::cout << "Current time: " << cur_time << ", flow start time: " << flow_start_time << std::endl;
     int state = 1;
+    unsigned int len;
     double next_state_transition_time = flowlet_duration < 1e-8 ? flow_start_time + flow_duration : flow_start_time + flowlet_duration;
     while (cur_time < flow_start_time + flow_duration) {
         if (state == 1) {
-            size_t bytes_sent = sendto(sockfd, buf, 8192, 0, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+            size_t bytes_sent = sendto(sockfd, buf, 1400, MSG_CONFIRM, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
             cur_bytes_sent += bytes_sent;
             total_bytes_sent += bytes_sent;
+            // size_t bytes_received = recvfrom(sockfd, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr*)&serv_addr, &len);
+            // cur_bytes_received += bytes_received;
+            // total_bytes_received += bytes_received;
             if (IsTimePassed(next_state_transition_time)) {
                 state = 0;
                 next_state_transition_time += flowlet_gap;

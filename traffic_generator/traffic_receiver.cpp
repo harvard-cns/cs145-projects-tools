@@ -5,6 +5,8 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <csignal>
+#include <chrono>
 
 #include "trace.hpp"
 
@@ -18,8 +20,22 @@ using json = nlohmann::json;
 
 DEFINE_string(host, "", "The host name to run the traffic receiver");
 DEFINE_string(topofile, "topology.json", "The topology database JSON file");
+DEFINE_uint64(start_time, 0, "The start time of the traffic");
 DEFINE_string(protocol, "udp", "The protocol to use");
+DEFINE_string(logdir, "logs", "The log file to record the traffic");
 DEFINE_bool(verbose, false, "Print verbose messages");
+
+static std::vector<size_t> udp_bytes_received_by_window;
+
+void killHandler(int signum)
+{
+    std::cout << "Writing throughputs to log file" << std::endl;
+    std::ofstream throughput_file(FLAGS_logdir + "/" + FLAGS_host + "_iperf_server.log");
+    for (size_t i = 0; i < udp_bytes_received_by_window.size(); i++) {
+        throughput_file << udp_bytes_received_by_window[i] << std::endl;
+    }
+    throughput_file.close();
+}
 
 int GetHostListFromTopoDB(json& topo_db_json, std::vector<std::string>& host_list)
 {
@@ -41,8 +57,8 @@ static inline double GetTimeUs() {
 int WaitUntil(double time)
 {
     double cur_time = GetTimeUs();
-    while (cur_time < time) {
-        cur_time = GetTimeUs();
+    if (time > cur_time) {
+        std::this_thread::sleep_for(std::chrono::microseconds((int)(time - cur_time)));
     }
     return 0;
 }
@@ -131,7 +147,7 @@ void LaunchTcpServer(std::string host_ip_address)
     }
 }
 
-void LaunchUdpServer(std::string host_ip_address)
+size_t LaunchUdpServer(std::string host_ip_address)
 {
     const size_t rate_report_period = 5000000;
 
@@ -146,7 +162,7 @@ void LaunchUdpServer(std::string host_ip_address)
     int status = getaddrinfo(host_ip_address.c_str(), "5001", &hints, &res);
     if (status != 0) {
         std::cerr << "getaddrinfo: " << gai_strerror(status) << std::endl;
-        return;
+        return 0;
     }
 
     int sockfd = -1;
@@ -163,16 +179,21 @@ void LaunchUdpServer(std::string host_ip_address)
 
     if (p == NULL) {
         std::cerr << "failed to bind" << std::endl;
-        return;
+        return 0;
     }
 
     freeaddrinfo(res);
-    size_t start_time = GetTimeUs();
+    // size_t start_time = GetTimeUs();
+    size_t cur_bytes_received = 0;
     size_t total_bytes_received = 0;
     size_t cur_report_num = 0;
+    struct sockaddr_in cliaddr;
+    unsigned int len = sizeof(cliaddr);
+    WaitUntil(FLAGS_start_time * 1000000);
     while (true) {
         char buf[65536];
-        int n = recv(sockfd, buf, sizeof(buf), 0);
+        int n = recvfrom(sockfd, buf, sizeof(buf), MSG_WAITALL, ( struct sockaddr *) &cliaddr, &len);
+        cur_bytes_received += n;
         total_bytes_received += n;
         if (n == 0) {
             break;
@@ -181,16 +202,22 @@ void LaunchUdpServer(std::string host_ip_address)
             perror("recv");
             break;
         }
-        if (FLAGS_verbose && IsTimePassed(start_time + (cur_report_num + 1) * rate_report_period)) {
-            std::cout << "Received " << total_bytes_received * 8 / 1000 * 1000000 / rate_report_period << "Kbps" << std::endl;
-            total_bytes_received = 0;
+        // sendto(sockfd, buf, n, MSG_CONFIRM, (const struct sockaddr *) &cliaddr, len);
+        if (FLAGS_verbose && IsTimePassed(FLAGS_start_time * 1000000 + (cur_report_num + 1) * rate_report_period)) {
+            std::cout << "Received " << cur_bytes_received * 8 / 1000 * 1000000 / rate_report_period << "Kbps" << std::endl;
+            udp_bytes_received_by_window.push_back(cur_bytes_received * 8 / 1000 * 1000000 / rate_report_period);
+            cur_bytes_received = 0;
             cur_report_num ++;
         }
     }
+
+    return cur_report_num;
 }
 
 int main(int argc, char **argv)
 {
+    signal(SIGTERM, killHandler);
+
     gflags::ParseCommandLineFlags(&argc, &argv, true);
     printf("Topology database file: %s\n", FLAGS_topofile.c_str());
 
@@ -214,16 +241,17 @@ int main(int argc, char **argv)
     }
     host_ip_address = host_ip_address.substr(0, host_ip_address.find("/"));
 
+    udp_bytes_received_by_window.reserve(1024);
+
     // Listen to the port and receive the traffic
     if (FLAGS_protocol == "udp") {
-        LaunchUdpServer(host_ip_address);
+        size_t report_num = LaunchUdpServer(host_ip_address);
     } else if (FLAGS_protocol == "tcp") {
-        LaunchTcpServer(host_ip_address);
+        LaunchTcpServer(host_ip_address); 
     } else {
         std::cerr << "Invalid protocol: " << FLAGS_protocol << std::endl;
         return -1;
     }
-    
 
     return 0;
 }

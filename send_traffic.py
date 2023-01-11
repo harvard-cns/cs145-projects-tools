@@ -38,7 +38,7 @@ CmdIperfClient = {
 	'kill': 'sudo killall "traffic_sender" 2>/dev/null'
 }
 CmdIperfServer = {
-	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_receiver --topofile {topo_file} --host {host_name} --protocol {proto} > {log_dir}/{host_name}_iperf_server_error.log 2>&1',
+	'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_receiver --topofile {topo_file} --host {host_name} --protocol {proto} --start_time {start_time} --logdir {log_dir} --verbose > {log_dir}/{host_name}_iperf_server_error.log 2>&1',
 	'kill': 'sudo killall "traffic_receiver" 2>/dev/null'
 }
 
@@ -83,6 +83,16 @@ def read_iperf_throughputs():
 			res.extend(lines)
 	res = list(map(float, res))
 	return res
+
+def read_iperf_throughputs_from_server():
+	res = []
+	for host in HOSTS:
+		log_fn = "%s/%s_iperf_server.log" % (LOG_DIR, host)
+		with open(log_fn, "r") as f:
+			lines = f.readlines()
+			res.extend(lines)
+	res = list(map(float, res))
+	return res
 		
 # Experiment class:
 #	Used to start memcached and iperf servers/clients on different hosts
@@ -113,6 +123,7 @@ class Experiment:
 	def start(self):
 		now = time.time()
 		print("start iperf and memcached servers")
+		self.start_time = int(now) + 10
 		for host in self.hosts:
 			if self.mode == 0 and host in self.mc_hosts:
 				self.run_mc_server(host)
@@ -120,7 +131,6 @@ class Experiment:
 		print("Wait 5 sec for iperf and memcached servers to start")
 		time.sleep(5)
 		print("Start iperf and memcached clients")
-		self.start_time = int(now) + 10
 		for host in self.hosts:
 			if self.mode == 0:
 				self.run_mc_client(host)
@@ -148,7 +158,7 @@ class Experiment:
 	def stop_mc_client(self, host):
 		self.mc_client_proc[host].wait()
 	def run_iperf_server(self, host):
-		p = MnExec(host, CmdIperfServer["start"].format(log_dir = LOG_DIR, host_name = host, proto = self.protocol, topo_file=args.topo))
+		p = MnExec(host, CmdIperfServer["start"].format(start_time = self.start_time, log_dir = LOG_DIR, host_name = host, proto = self.protocol, topo_file=args.topo))
 		self.iperf_server_proc[host] = p
 	def stop_iperf_server(self, host):
 		MnExec(host, CmdIperfServer["kill"])
@@ -173,7 +183,11 @@ class Experiment:
 				avg_latency = sum(mc_latency) / len(mc_latency)
 				print("Average latency of Memcached Requests: {0} us".format(avg_latency))
 				# print("Average log(latency) of Memcached Requests: {0}".format(scoreb))
-		iperf_bps = read_iperf_throughputs()
+		iperf_bps = 0
+		if self.protocol == "udp":
+			iperf_bps = read_iperf_throughputs_from_server()
+		elif self.protocol == "tcp":
+			iperf_bps = read_iperf_throughputs()
 		bps_scores = list(map(lambda x: math.log(x, 10), iperf_bps))
 		if len(bps_scores) > 0:
 			scorea = sum(bps_scores) / len(bps_scores)
@@ -237,3 +251,6 @@ if __name__ == '__main__':
 	e.start()
 	
 	e.calc_score(a, b)
+	
+	script_path = os.path.dirname(__file__)
+	subprocess.Popen("{}/kill_traffic.sh".format(script_path), shell=True)
