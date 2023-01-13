@@ -29,5 +29,5 @@
         "value": 1000000
     },
     "length": 60000000,
-    "output": "./trace/project0.trace"
+    "output": "./apps/trace/project0.trace"
 }
