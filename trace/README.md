@@ -46,6 +46,10 @@ The trace generator is configured using a JSON file. The JSON file should be for
       }
     ],
     "mc_host_list": ["h1", "h2"],
+    "mc_gap_distribution": {
+        "type": "constant",
+        "value": 100000
+    },
     "length": 60000000,
     "output": "sample.trace"
   }
