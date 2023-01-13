@@ -95,10 +95,10 @@ def read_iperf_throughputs_from_server():
 	return res
 		
 def make_traffic_generator():
-    p = Popen("cd apps/traffic_generator; make; cd ../..", shell=True)
-    if p.returncode != 0:
-        print("Make traffic generator error!")
-        sys.exit(1)
+	p = Popen("cd apps/traffic_generator; make; cd ../..", shell=True)
+	if p.returncode != 0:
+		print("Make traffic generator error!")
+		sys.exit(1)
 
 # Experiment class:
 #	Used to start memcached and iperf servers/clients on different hosts
@@ -241,7 +241,7 @@ if __name__ == '__main__':
 	LOG_DIR = args.logdir
 	duration = calc_duration(args.trace)
 
-    make_traffic_generator()
+	make_traffic_generator()
 
 	print(colored("########### Traffic Sender ############", 'green'))
 	print("Trace file: {0}".format(args.trace))
