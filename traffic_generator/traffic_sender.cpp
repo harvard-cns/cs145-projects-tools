@@ -27,6 +27,7 @@ DEFINE_uint64(start_time, 0, "The start time of the traffic");
 DEFINE_string(logdir, "logs", "The log file to record the traffic");
 DEFINE_bool(verbose, false, "Print verbose messages");
 DEFINE_uint64(bandwidth, 1000000, "The bandwidth of the sender");
+DEFINE_uint64(port, 0, "Assign specific port");
 
 std::vector<std::thread*> all_client_threads;
 std::vector<double> all_client_thread_throughputs;
@@ -73,6 +74,17 @@ void threadTcpConnection(size_t tid, std::string host, std::string dst_ip_addr, 
     if (sockfd < 0) {
         std::cerr << "Error: failed to create socket" << std::endl;
         return;
+    }
+
+    if (FLAGS_port != 0) {
+        struct sockaddr_in client_addr;
+        bzero(&client_addr, sizeof(client_addr));
+        client_addr.sin_family = AF_INET;
+        client_addr.sin_port = htons(FLAGS_port);
+        if (bind(sockfd, (struct sockaddr*) &client_addr, sizeof(struct sockaddr_in)) == 0)
+            printf("Binded Correctly\n");
+        else
+            printf("Unable to bind\n");
     }
 
     struct sockaddr_in serv_addr;

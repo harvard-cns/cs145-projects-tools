@@ -34,7 +34,7 @@ CmdMemcachedServer = {
     'kill': 'sudo killall memcached 2>/dev/null'
 }
 CmdIperfClient = {
-    'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_sender --topofile {topo_file} --host {host_name} --protocol {proto} --tracefile {traffic_file} --start_time {start_time} --logdir {log_dir} --verbose > {log_dir}/{host_name}_iperf_error.log 2>&1',
+    'start': 'stdbuf -o0 -e0 ./apps/traffic_generator/traffic_sender --topofile {topo_file} --host {host_name} --protocol {proto} --tracefile {traffic_file} --start_time {start_time} --logdir {log_dir} --verbose --port {port} > {log_dir}/{host_name}_iperf_error.log 2>&1',
     'kill': 'sudo killall "traffic_sender" 2>/dev/null'
 }
 CmdIperfServer = {
@@ -170,7 +170,7 @@ class Experiment:
     def stop_iperf_server(self, host):
         MnExec(host, CmdIperfServer["kill"])
     def run_iperf_client(self, host):
-        p = MnExec(host, CmdIperfClient["start"].format(start_time = self.start_time, host_name = host, traffic_file = self.traffic_file, log_dir = LOG_DIR, proto = self.protocol, topo_file=args.topo))
+        p = MnExec(host, CmdIperfClient["start"].format(start_time = self.start_time, host_name = host, traffic_file = self.traffic_file, log_dir = LOG_DIR, proto = self.protocol, topo_file=args.topo, port=self.port_num))
         self.iperf_client_proc[host] = p
     def stop_iperf_client(self, host):
         self.iperf_client_proc[host].wait()
@@ -235,6 +235,7 @@ parser.add_argument('--trace', help='Traffic trace file', required=True)
 parser.add_argument('--logdir', help='The directory storing the logs', default="logs")
 parser.add_argument('--topo', help='The directory storing the topology.json', default="topology.json")
 parser.add_argument('--protocol', help='TCP/UDP for sending iperf traffic', default="tcp", choices=["tcp", "udp"])
+parser.add_argument('--port', help='Specific port for TCP sender', default="0")
 args = parser.parse_args()
 if __name__ == '__main__':
     topo = load_topo(args.topo)
@@ -243,6 +244,8 @@ if __name__ == '__main__':
     duration = calc_duration(args.trace)
 
     make_traffic_generator()
+
+    assert(int(args.port) >= 0 and int(args.port) < 65536)
 
     print(colored("########### Traffic Sender ############", 'green'))
     print("Trace file: {0}".format(args.trace))
@@ -256,7 +259,7 @@ if __name__ == '__main__':
 
     make_log_dir()
 
-    e = Experiment(args.trace, HOSTS, duration, args.protocol)
+    e = Experiment(args.trace, HOSTS, duration, args.protocol, int(args.port))
     e.start()
     
     e.calc_score(a, b)
