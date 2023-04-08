@@ -262,6 +262,7 @@ if __name__ == '__main__':
     e = Experiment(args.trace, HOSTS, duration, args.protocol, int(args.port))
     e.start()
     
+    time.sleep(3)
     e.calc_score(a, b)
     
     script_path = os.path.dirname(__file__)
