@@ -1,4 +1,5 @@
 {
+    "_comment": "Host h1 and h3 send traffic to each other. Memcached randomly generates requests every 1 second.",
     "flow_groups": [
         {
             "start_time": 0,

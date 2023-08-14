@@ -133,13 +133,16 @@ class Experiment:
         self.start_time = int(now) + 10
         for host in self.hosts:
             if self.mode == 0 and host in self.mc_hosts:
+                print("Run memcached server on host {0}".format(host))
                 self.run_mc_server(host)
+            print("Run iperf server on host {0}".format(host))
             self.run_iperf_server(host)
         print("Wait 5 sec for iperf and memcached servers to start")
         time.sleep(5)
         print("Start iperf and memcached clients")
         for host in self.hosts:
             if self.mode == 0:
+                print("Run memcached client on host {0}".format(host))
                 self.run_mc_client(host)
             print("Run iperf client on host {0}".format(host))
             self.run_iperf_client(host)
