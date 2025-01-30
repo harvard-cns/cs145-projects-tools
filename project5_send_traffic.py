@@ -1,16 +1,18 @@
 """ Usage
 sudo python send_traffic_asym.py [duration_in_seconds] [random_seed]
-- Example: 
+- Example:
     sudo python send_traffic_asym.py 10 10000 (send 10s traffic)
     The random seed is the seed to generate random source and destination ports.
 """
+
 import random
 import time
 from p4utils.utils.helper import load_topo
 from subprocess import Popen, DEVNULL
 import sys
 import os
-path = 'log'
+
+path = "log"
 if not os.path.exists(path):
     os.makedirs(path)
 
@@ -27,7 +29,7 @@ topo = load_topo("topology.json")
 iperf_send = "mx {0} iperf3 -c {1} -l 1000 -t {2} --bind {3} -p {4} --cport {5} 2>&1 > log/iperf_client_{6}.log"
 iperf_recv = "mx {0} iperf3 -s -p {1} --one-off 2>&1 > log/iperf_server_{2}.log"
 
-#print("#############CLEAN UP DANGLING IPERFS...###########")
+# print("#############CLEAN UP DANGLING IPERFS...###########")
 Popen("sudo killall iperf iperf3", shell=True, stdout=DEVNULL, stderr=DEVNULL)
 
 used_ports = []
@@ -49,9 +51,14 @@ for x in range(num_flows):
     c_ports.append(port)
 
 print("random seed: " + str(seed))
-print("Src port and Dst port for flow 1: [" + str(used_ports[0]) +", ", str(c_ports[0]) + "]")
-print("Src port and Dst port for flow 2: [" + str(used_ports[1]) +", ", str(c_ports[1]) + "]")
-
+print(
+    "Src port and Dst port for flow 1: [" + str(used_ports[0]) + ", ",
+    str(c_ports[0]) + "]",
+)
+print(
+    "Src port and Dst port for flow 2: [" + str(used_ports[1]) + ", ",
+    str(c_ports[1]) + "]",
+)
 
 
 Popen(iperf_recv.format("h13", used_ports[0], 0), shell=True)
@@ -59,8 +66,30 @@ Popen(iperf_recv.format("h16", used_ports[1], 1), shell=True)
 
 time.sleep(2)
 
-Popen(iperf_send.format("h1", topo.get_host_ip("h13"), duration, topo.get_host_ip("h1"), used_ports[0], c_ports[0], 0), shell=True)
-Popen(iperf_send.format("h3", topo.get_host_ip("h16"), duration, topo.get_host_ip("h3"), used_ports[1], c_ports[1], 1), shell=True)
+Popen(
+    iperf_send.format(
+        "h1",
+        topo.get_host_ip("h13"),
+        duration,
+        topo.get_host_ip("h1"),
+        used_ports[0],
+        c_ports[0],
+        0,
+    ),
+    shell=True,
+)
+Popen(
+    iperf_send.format(
+        "h3",
+        topo.get_host_ip("h16"),
+        duration,
+        topo.get_host_ip("h3"),
+        used_ports[1],
+        c_ports[1],
+        1,
+    ),
+    shell=True,
+)
 
 time.sleep(duration + 2)
 

@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/python3
 
 import numpy as np
 import random as rdm
@@ -8,22 +8,27 @@ import json
 from p4utils.utils.helper import load_topo
 from p4utils.utils.sswitch_thrift_API import SimpleSwitchThriftAPI
 
+
 def get_ip_from_hostname(hostname, topo):
     intfs = topo.get_interfaces(hostname)
     intf = intfs[0]
     return topo.node_interface_ip(hostname, intf)
 
+
 alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
 
 def generate_random_string():
     string_len = rdm.randint(5, 8)
-    res = ''
+    res = ""
     for i in range(string_len):
         alphabet_idx = rdm.randint(0, len(alphabet) - 1)
         res += alphabet[alphabet_idx]
     return res
 
+
 mc_key_list = []
+
 
 class Trace:
     host = ""
@@ -37,30 +42,43 @@ class Trace:
     mc_value = ""
 
     def generate_string(self):
-        res_str = self.host + ' ' + str(self.start_time) + ' ' + str(self.trace_type)
+        res_str = self.host + " " + str(self.start_time) + " " + str(self.trace_type)
         if self.trace_type == 0:
-            res_str += ' ' + self.mc_key
+            res_str += " " + self.mc_key
         elif self.trace_type == 1:
-            res_str += ' ' + self.mc_key + ' ' + self.mc_value
+            res_str += " " + self.mc_key + " " + self.mc_value
         elif self.trace_type == 2:
-            res_str += ' ' + self.ip_address + ' ' + str(self.length) + ' ' + str(self.flowlet_size) + ' ' + str(self.flowlet_gap)
+            res_str += (
+                " "
+                + self.ip_address
+                + " "
+                + str(self.length)
+                + " "
+                + str(self.flowlet_size)
+                + " "
+                + str(self.flowlet_gap)
+            )
         return res_str
+
 
 class Distribution:
     dist_type = 0
     value1 = 0
     value2 = 0
+
     def generate_value(self):
         if self.dist_type == 0:
             return self.value1
         else:
             return rdm.randint(self.value1, self.value2)
 
+
 def ConstantDistribution(value):
     dist = Distribution()
     dist.dist_type = 0
     dist.value1 = value
     return dist
+
 
 def UniformDistribution(min_val, max_val):
     if min_val < 0 or max_val < 0:
@@ -75,6 +93,7 @@ def UniformDistribution(min_val, max_val):
     dist.value2 = max_val
     return dist
 
+
 class FlowGroup:
     start_time = 0
     length = 0
@@ -85,6 +104,7 @@ class FlowGroup:
     flowlet_size_dist = None
     flowlet_gap_dist = None
 
+
 class Config:
     flow_group_list = []
     mc_host_list = []
@@ -92,38 +112,52 @@ class Config:
     length = 0
     output = None
 
+
 def parse_distribution(jsonDist):
-    if jsonDist['type'] == 'uniform':
-        return UniformDistribution(jsonDist['min'], jsonDist['max'])
-    elif jsonDist['type'] == 'constant':
-        return ConstantDistribution(jsonDist['value'])
+    if jsonDist["type"] == "uniform":
+        return UniformDistribution(jsonDist["min"], jsonDist["max"])
+    elif jsonDist["type"] == "constant":
+        return ConstantDistribution(jsonDist["value"])
     else:
         print("Invalid distribution type detected!")
         exit()
 
+
 def parse_json(jsonConfig):
     cfg = Config()
-    jsonFlowGroupList = jsonConfig['flow_groups']
+    jsonFlowGroupList = jsonConfig["flow_groups"]
     for i in range(len(jsonFlowGroupList)):
         jsonFlowGroup = jsonFlowGroupList[i]
         flow_group = FlowGroup()
-        flow_group.start_time = jsonFlowGroup['start_time']
-        flow_group.length = jsonFlowGroup['length']
-        flow_group.src_host_list = jsonFlowGroup['src_host_list']
-        flow_group.dst_host_list = jsonFlowGroup['dst_host_list']
-        flow_group.flow_size_dist = parse_distribution(jsonFlowGroup['flow_size_distribution'])
-        flow_group.flow_gap_dist = parse_distribution(jsonFlowGroup['flow_gap_distribution'])
-        if flow_group.flow_gap_dist.dist_type == 0 and flow_group.flow_gap_dist.value1 == 0:
+        flow_group.start_time = jsonFlowGroup["start_time"]
+        flow_group.length = jsonFlowGroup["length"]
+        flow_group.src_host_list = jsonFlowGroup["src_host_list"]
+        flow_group.dst_host_list = jsonFlowGroup["dst_host_list"]
+        flow_group.flow_size_dist = parse_distribution(
+            jsonFlowGroup["flow_size_distribution"]
+        )
+        flow_group.flow_gap_dist = parse_distribution(
+            jsonFlowGroup["flow_gap_distribution"]
+        )
+        if (
+            flow_group.flow_gap_dist.dist_type == 0
+            and flow_group.flow_gap_dist.value1 == 0
+        ):
             print("Flow gap distribution cannot be a constant zero")
             exit()
-        flow_group.flowlet_size_dist = parse_distribution(jsonFlowGroup['flowlet_size_distribution'])
-        flow_group.flowlet_gap_dist = parse_distribution(jsonFlowGroup['flowlet_gap_distribution'])
+        flow_group.flowlet_size_dist = parse_distribution(
+            jsonFlowGroup["flowlet_size_distribution"]
+        )
+        flow_group.flowlet_gap_dist = parse_distribution(
+            jsonFlowGroup["flowlet_gap_distribution"]
+        )
         cfg.flow_group_list.append(flow_group)
-    cfg.mc_host_list = jsonConfig['mc_host_list']
-    cfg.mc_gap_distribution = parse_distribution(jsonConfig['mc_gap_distribution'])
-    cfg.length = jsonConfig['length']
-    cfg.output = jsonConfig['output']
+    cfg.mc_host_list = jsonConfig["mc_host_list"]
+    cfg.mc_gap_distribution = parse_distribution(jsonConfig["mc_gap_distribution"])
+    cfg.length = jsonConfig["length"]
+    cfg.output = jsonConfig["output"]
     return cfg
+
 
 def generate_flow_group(cfgFlowGroup, topo):
     trace_list = []
@@ -150,6 +184,7 @@ def generate_flow_group(cfgFlowGroup, topo):
         current_time += cfgFlowGroup.flow_gap_dist.generate_value()
     return trace_list
 
+
 class MemcachedRequest:
     src_host = None
     start_time = 0
@@ -158,10 +193,19 @@ class MemcachedRequest:
     value = None
 
     def generate_string(self):
-        res = self.src_host + " " + str(self.start_time) + " " + str(self.request_type) + " " + self.key
+        res = (
+            self.src_host
+            + " "
+            + str(self.start_time)
+            + " "
+            + str(self.request_type)
+            + " "
+            + self.key
+        )
         if self.request_type == 0:
             res += " " + self.value
         return res
+
 
 def generate_mc_requests(cfgMcList, cfgMcDist, length):
     # Skip memcached requests if there are no mchosts
@@ -201,7 +245,7 @@ def generate_mc_requests(cfgMcList, cfgMcDist, length):
         res.append(request)
         current_time += mc_gap_distribution.generate_value()
     return res
-        
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -212,7 +256,7 @@ if __name__ == "__main__":
     jsonConfig = None
     with open(config_filename, "r") as f:
         jsonConfig = json.load(f)
-    
+
     if jsonConfig == None:
         print("Cannot open the config file!")
         exit()
@@ -224,28 +268,31 @@ if __name__ == "__main__":
     for i in range(len(cfg.flow_group_list)):
         trace_list.extend(generate_flow_group(cfg.flow_group_list[i], topo))
 
-    mc_request_list = generate_mc_requests(cfg.mc_host_list, cfg.mc_gap_distribution, cfg.length)
+    mc_request_list = generate_mc_requests(
+        cfg.mc_host_list, cfg.mc_gap_distribution, cfg.length
+    )
 
-    with open(cfg.output, 'w') as f:
+    with open(cfg.output, "w") as f:
         mc_ip_str = ""
         for host in jsonConfig["mc_host_list"]:
             mc_ip_str += host + " " + get_ip_from_hostname(host, topo) + " "
-        f.write(mc_ip_str + '\n')   
+        f.write(mc_ip_str + "\n")
         trace_idx = 0
         mc_request_idx = 0
         while trace_idx < len(trace_list) or mc_request_idx < len(mc_request_list):
             if trace_idx == len(trace_list):
-                f.write(mc_request_list[mc_request_idx].generate_string() + '\n')
+                f.write(mc_request_list[mc_request_idx].generate_string() + "\n")
                 mc_request_idx += 1
             elif mc_request_idx == len(mc_request_list):
-                f.write(trace_list[trace_idx].generate_string() + '\n')
+                f.write(trace_list[trace_idx].generate_string() + "\n")
                 trace_idx += 1
             else:
-                if mc_request_list[mc_request_idx].start_time < trace_list[trace_idx].start_time:
-                    f.write(mc_request_list[mc_request_idx].generate_string() + '\n')
+                if (
+                    mc_request_list[mc_request_idx].start_time
+                    < trace_list[trace_idx].start_time
+                ):
+                    f.write(mc_request_list[mc_request_idx].generate_string() + "\n")
                     mc_request_idx += 1
                 else:
-                    f.write(trace_list[trace_idx].generate_string() + '\n')
+                    f.write(trace_list[trace_idx].generate_string() + "\n")
                     trace_idx += 1
-
-

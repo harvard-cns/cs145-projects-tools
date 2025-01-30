@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 # Usage ./apps/kill_traffic.sh
 #   Kill the traffic generator background processes

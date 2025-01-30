@@ -12,7 +12,7 @@ make
 
 Then you can see two binary files in this directory: `traffic_receiver` and `traffic_sender`.
 
-To run the traffic generator, we need to run the receiver first in a node, and run the traffic sender in another node. 
+To run the traffic generator, we need to run the receiver first in a node, and run the traffic sender in another node.
 In this course project, you are not required to directly run the traffic generator manually.
 However, in case you need to run it for debugging, we provide the instructions as follows.
 
