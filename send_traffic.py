@@ -5,7 +5,6 @@
 #   The iperf and memcached performance results and their error logs will be recorded in the directory {log_dir}
 
 import os
-import re
 import shutil
 import time
 import sys
@@ -243,7 +242,6 @@ class Experiment:
             mc_latency = read_mc_latencies()
             latency_scores = list(map(lambda x: math.log(x, 10), mc_latency))
             if len(latency_scores) > 0:
-                scoreb = sum(latency_scores) / len(latency_scores)
                 avg_latency = sum(mc_latency) / len(mc_latency)
                 print(f"Average latency of Memcached Requests: {avg_latency} us")
         iperf_bps = 0
@@ -253,7 +251,6 @@ class Experiment:
             iperf_bps = read_iperf_throughputs()
         bps_scores = list(map(lambda x: math.log(x, 10), iperf_bps))
         if len(bps_scores) > 0:
-            scorea = sum(bps_scores) / len(bps_scores)
             avg_thru = sum(iperf_bps) / len(iperf_bps)
             print(f"Average throughput of Iperf Traffic: {avg_thru} kbps")
 

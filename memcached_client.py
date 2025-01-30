@@ -1,5 +1,4 @@
 import memcache
-import time
 import sys
 from utils import measure_time, wait_util
 from memcached_trace import MemcachedTrace

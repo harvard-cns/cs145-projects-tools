@@ -1,12 +1,9 @@
 #!/usr/bin/python3
 
-import numpy as np
 import random as rdm
-import string
 import sys
 import json
 from p4utils.utils.helper import load_topo
-from p4utils.utils.sswitch_thrift_API import SimpleSwitchThriftAPI
 
 
 def get_ip_from_hostname(hostname, topo):
@@ -123,9 +120,9 @@ def parse_distribution(jsonDist):
         exit()
 
 
-def parse_json(jsonConfig):
+def parse_json(json_config):
     cfg = Config()
-    jsonFlowGroupList = jsonConfig["flow_groups"]
+    jsonFlowGroupList = json_config["flow_groups"]
     for i in range(len(jsonFlowGroupList)):
         jsonFlowGroup = jsonFlowGroupList[i]
         flow_group = FlowGroup()
@@ -152,10 +149,10 @@ def parse_json(jsonConfig):
             jsonFlowGroup["flowlet_gap_distribution"]
         )
         cfg.flow_group_list.append(flow_group)
-    cfg.mc_host_list = jsonConfig["mc_host_list"]
-    cfg.mc_gap_distribution = parse_distribution(jsonConfig["mc_gap_distribution"])
-    cfg.length = jsonConfig["length"]
-    cfg.output = jsonConfig["output"]
+    cfg.mc_host_list = json_config["mc_host_list"]
+    cfg.mc_gap_distribution = parse_distribution(json_config["mc_gap_distribution"])
+    cfg.length = json_config["length"]
+    cfg.output = json_config["output"]
     return cfg
 
 
@@ -253,17 +250,17 @@ if __name__ == "__main__":
         exit()
 
     config_filename = sys.argv[1]
-    jsonConfig = None
+    json_config = None
     with open(config_filename, "r") as f:
-        jsonConfig = json.load(f)
+        json_config = json.load(f)
 
-    if jsonConfig == None:
+    if json_config is None:
         print("Cannot open the config file!")
         exit()
 
     topo = load_topo("topology.json")
 
-    cfg = parse_json(jsonConfig)
+    cfg = parse_json(json_config)
     trace_list = []
     for i in range(len(cfg.flow_group_list)):
         trace_list.extend(generate_flow_group(cfg.flow_group_list[i], topo))
@@ -274,7 +271,7 @@ if __name__ == "__main__":
 
     with open(cfg.output, "w") as f:
         mc_ip_str = ""
-        for host in jsonConfig["mc_host_list"]:
+        for host in json_config["mc_host_list"]:
             mc_ip_str += host + " " + get_ip_from_hostname(host, topo) + " "
         f.write(mc_ip_str + "\n")
         trace_idx = 0
