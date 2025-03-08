@@ -21,9 +21,7 @@
                 "type": "constant",
                 "value": 0
             }
-        }
-    ],
-    "flow_groups": [
+        },
         {
             "start_time": 0,
             "length": 60000000,
